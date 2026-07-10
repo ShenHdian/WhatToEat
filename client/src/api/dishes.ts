@@ -79,3 +79,14 @@ export async function addHistoryRecord(dishName: string): Promise<HistoryRecord[
   }
   return res.json();
 }
+
+export async function deleteHistoryRecord(id: string): Promise<HistoryRecord[]> {
+  const res = await fetch(`${API_BASE}/history/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "删除记录失败");
+  }
+  return res.json();
+}

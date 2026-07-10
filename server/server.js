@@ -160,6 +160,19 @@ app.post("/api/history", (req, res) => {
   res.status(201).json(getFilteredHistory());
 });
 
+
+// DELETE /api/history/:id — 删除一条摇菜记录
+app.delete("/api/history/:id", (req, res) => {
+  const history = loadHistory();
+  const index = history.findIndex((h) => h.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: "记录不存在" });
+  }
+  history.splice(index, 1);
+  saveHistory(history);
+  res.json(getFilteredHistory());
+});
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", dishCount: loadDishes().length });

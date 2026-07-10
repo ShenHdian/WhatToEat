@@ -15,6 +15,7 @@ import {
   getRandomDish,
   fetchHistory,
   addHistoryRecord,
+  deleteHistoryRecord,
 } from "./api/dishes";
 import "./App.css";
 
@@ -90,9 +91,18 @@ export default function App() {
     await loadDishes();
   };
 
+  const handleDeleteHistory = async (id: string) => {
+    try {
+      const updated = await deleteHistoryRecord(id);
+      setHistory(updated);
+      message.success("已删除");
+    } catch {
+      message.error("删除失败");
+    }
+  };
+
   const handleRandomPick = async (): Promise<Dish> => {
     const dish = await getRandomDish();
-    // Save to history (fire and forget)
     addHistoryRecord(dish.name).then((newHistory) => {
       setHistory(newHistory);
     }).catch(() => {});
@@ -119,7 +129,7 @@ export default function App() {
       </Header>
 
       <Content style={{ maxWidth: 600, margin: "0 auto", padding: "16px", width: "100%" }}>
-        {/* Random picker card */}
+        {/* Random picker */}
         <div
           style={{
             background: "#fff",
@@ -133,9 +143,13 @@ export default function App() {
         </div>
 
         {/* History card */}
-        <HistoryCard records={history} loading={historyLoading} />
+        <HistoryCard
+          records={history}
+          loading={historyLoading}
+          onDelete={handleDeleteHistory}
+        />
 
-        {/* Dish management section */}
+        {/* Dish management */}
         <div
           style={{
             background: "#fff",

@@ -1,5 +1,5 @@
-import { List, Typography, Empty, Tag } from "antd";
-import { ClockCircleOutlined } from "@ant-design/icons";
+import { List, Typography, Empty, Tag, Button, Popconfirm } from "antd";
+import { ClockCircleOutlined, DeleteOutlined } from "@ant-design/icons";
 import type { HistoryRecord } from "../api/dishes";
 
 const { Text } = Typography;
@@ -7,9 +7,10 @@ const { Text } = Typography;
 interface HistoryCardProps {
   records: HistoryRecord[];
   loading: boolean;
+  onDelete: (id: string) => void;
 }
 
-export default function HistoryCard({ records, loading }: HistoryCardProps) {
+export default function HistoryCard({ records, loading, onDelete }: HistoryCardProps) {
   return (
     <div
       style={{
@@ -55,6 +56,21 @@ export default function HistoryCard({ records, loading }: HistoryCardProps) {
                   padding: "8px 0",
                   borderBottom: "1px solid #f5f5f5",
                 }}
+                actions={[
+                  <Popconfirm
+                    title="确定删除这条记录？"
+                    onConfirm={() => onDelete(record.id)}
+                    key="delete"
+                    placement="left"
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                    />
+                  </Popconfirm>,
+                ]}
               >
                 <div
                   style={{
