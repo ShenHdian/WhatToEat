@@ -5,16 +5,21 @@ export PATH="$NVM_DIR/versions/node/v24.18.0/bin:$PATH"
 
 cd /etc/whattoeat
 
-# Backup user data before pulling
+# Backup AND remove data files before pulling (git would conflict with local changes)
 cp server/dishes.json /tmp/dishes_backup.json 2>/dev/null
 cp server/history.json /tmp/history_backup.json 2>/dev/null
 cp server/comments.json /tmp/comments_backup.json 2>/dev/null
+rm -f server/dishes.json server/history.json server/comments.json
 
 git fetch origin
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/master)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
+    # Restore data files (no update needed)
+    cp /tmp/dishes_backup.json server/dishes.json 2>/dev/null
+    cp /tmp/history_backup.json server/history.json 2>/dev/null
+    cp /tmp/comments_backup.json server/comments.json 2>/dev/null
     echo "[$(date)] No updates found."
     exit 0
 fi
@@ -23,7 +28,7 @@ echo "[$(date)] New updates found! Deploying..."
 
 git pull origin master
 
-# Restore user data (if backup exists, restore; otherwise server.js will create empty)
+# Restore user data (if backup exists; otherwise server.js auto-creates empty)
 cp /tmp/dishes_backup.json server/dishes.json 2>/dev/null
 cp /tmp/history_backup.json server/history.json 2>/dev/null
 cp /tmp/comments_backup.json server/comments.json 2>/dev/null
