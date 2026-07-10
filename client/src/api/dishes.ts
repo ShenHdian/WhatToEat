@@ -52,3 +52,30 @@ export async function getRandomDish(): Promise<Dish> {
   }
   return res.json();
 }
+
+// ─── History API ───────────────────────────────────────────
+
+export interface HistoryRecord {
+  id: string;
+  dishName: string;
+  createdAt: string;
+}
+
+export async function fetchHistory(): Promise<HistoryRecord[]> {
+  const res = await fetch(`${API_BASE}/history`);
+  if (!res.ok) throw new Error("获取历史失败");
+  return res.json();
+}
+
+export async function addHistoryRecord(dishName: string): Promise<HistoryRecord[]> {
+  const res = await fetch(`${API_BASE}/history`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dishName }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "记录失败");
+  }
+  return res.json();
+}

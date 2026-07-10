@@ -1,4 +1,4 @@
-﻿const express = require("express");
+const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require("uuid");
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_FILE = path.join(__dirname, "dishes.json");
+const HISTORY_FILE = path.join(__dirname, "history.json");
 
 // Middleware
 app.use(cors());
@@ -33,6 +34,40 @@ function loadDishes() {
 
 function saveDishes(dishes) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(dishes, null, 2), "utf-8");
+}
+
+function loadHistory() {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      const raw = fs.readFileSync(HISTORY_FILE, "utf-8");
+      return JSON.parse(raw);
+    }
+  } catch (e) {
+    console.error("Error reading history.json:", e.message);
+  }
+  return [];
+}
+
+function saveHistory(history) {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf-8");
+}
+
+// 获取 cutoff 时间：今天凌晨 4:00（若当前<4点则用昨天凌晨4点）
+function getCutoffTime() {
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setHours(4, 0, 0, 0);
+  if (now < cutoff) {
+    // 还没到今早4点，回退一天
+    cutoff.setDate(cutoff.getDate() - 1);
+  }
+  return cutoff;
+}
+
+// 过滤历史：只保留 cutoff 之后的记录
+function getFilteredHistory() {
+  const cutoff = getCutoffTime();
+  return loadHistory().filter((h) => new Date(h.createdAt) >= cutoff);
 }
 
 // ─── API Routes ─────────────────────────────────────────────
@@ -97,6 +132,32 @@ app.get("/api/dishes/random", (req, res) => {
   }
   const picked = dishes[Math.floor(Math.random() * dishes.length)];
   res.json(picked);
+});
+
+// ─── History API ───────────────────────────────────────────
+
+// GET /api/history — 获取摇菜记录（自动按4点规则过滤）
+app.get("/api/history", (req, res) => {
+  const history = getFilteredHistory();
+  res.json(history);
+});
+
+// POST /api/history — 添加一条摇菜记录
+app.post("/api/history", (req, res) => {
+  const { dishName } = req.body;
+  if (!dishName || !dishName.trim()) {
+    return res.status(400).json({ error: "菜品名称不能为空" });
+  }
+  const history = loadHistory();
+  const record = {
+    id: uuidv4(),
+    dishName: dishName.trim(),
+    createdAt: new Date().toISOString(),
+  };
+  history.push(record);
+  saveHistory(history);
+  // 返回过滤后的列表（前端直接更新）
+  res.status(201).json(getFilteredHistory());
 });
 
 // Health check

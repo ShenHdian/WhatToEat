@@ -4,13 +4,17 @@ import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import DishList from "./components/DishList";
 import AddDishModal from "./components/AddDishModal";
 import RandomPicker from "./components/RandomPicker";
+import HistoryCard from "./components/HistoryCard";
 import type { Dish } from "./types/dish";
+import type { HistoryRecord } from "./api/dishes";
 import {
   fetchDishes,
   addDish,
   updateDish,
   deleteDish,
   getRandomDish,
+  fetchHistory,
+  addHistoryRecord,
 } from "./api/dishes";
 import "./App.css";
 
@@ -22,6 +26,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const loadDishes = useCallback(async () => {
     setLoading(true);
@@ -35,9 +41,22 @@ export default function App() {
     }
   }, []);
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const data = await fetchHistory();
+      setHistory(data);
+    } catch {
+      // silent fail for history
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadDishes();
-  }, [loadDishes]);
+    loadHistory();
+  }, [loadDishes, loadHistory]);
 
   const handleAdd = () => {
     setEditingDish(null);
@@ -72,7 +91,12 @@ export default function App() {
   };
 
   const handleRandomPick = async (): Promise<Dish> => {
-    return await getRandomDish();
+    const dish = await getRandomDish();
+    // Save to history (fire and forget)
+    addHistoryRecord(dish.name).then((newHistory) => {
+      setHistory(newHistory);
+    }).catch(() => {});
+    return dish;
   };
 
   return (
@@ -95,6 +119,7 @@ export default function App() {
       </Header>
 
       <Content style={{ maxWidth: 600, margin: "0 auto", padding: "16px", width: "100%" }}>
+        {/* Random picker card */}
         <div
           style={{
             background: "#fff",
@@ -107,6 +132,10 @@ export default function App() {
           <RandomPicker dishes={dishes} onPick={handleRandomPick} />
         </div>
 
+        {/* History card */}
+        <HistoryCard records={history} loading={historyLoading} />
+
+        {/* Dish management section */}
         <div
           style={{
             background: "#fff",
