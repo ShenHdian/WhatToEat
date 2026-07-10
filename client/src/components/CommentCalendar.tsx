@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Modal, Button, Typography, Spin, List, Tag } from "antd";
+import { Modal, Button, Typography, Spin, Tag } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { fetchCalendarDays, fetchCommentsByDate, deleteComment, type CommentRecord } from "../api/comments";
 
@@ -62,7 +62,6 @@ export default function CommentCalendar({ open, onClose, onSelectDate }: Comment
     try {
       await deleteComment(id);
       setDayComments((prev) => prev.filter((c) => c.id !== id));
-      // If no comments left, deactivate the day
       if (dayComments.length <= 1) {
         setActiveDays((prev) => prev.filter((d) => d !== String(selectedDay?.split("-")[2])));
         setSelectedDay(null);
@@ -99,7 +98,6 @@ export default function CommentCalendar({ open, onClose, onSelectDate }: Comment
         <div style={{ textAlign: "center", padding: 20 }}><Spin /></div>
       ) : (
         <>
-          {/* Calendar grid */}
           <div
             style={{
               display: "grid",
@@ -144,7 +142,6 @@ export default function CommentCalendar({ open, onClose, onSelectDate }: Comment
             })}
           </div>
 
-          {/* Selected day comments */}
           {selectedDay && (
             <div
               style={{

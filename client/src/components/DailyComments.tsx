@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Typography, Empty, Button, Input, Popconfirm, Tag, message } from "antd";
+import { useState } from "react";
+import { Typography, Button, Input, Popconfirm, Tag, message } from "antd";
 import { DeleteOutlined, DownOutlined, RightOutlined, SendOutlined, CalendarOutlined } from "@ant-design/icons";
 import type { CommentsByDay, CommentRecord } from "../api/comments";
 import CommentCalendar from "./CommentCalendar";
@@ -32,7 +32,6 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const days = Object.keys(data).sort().reverse();
   const hasMultipleMonths = (() => {
@@ -107,13 +106,12 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
 
         {days.map((day) => {
           const comments: CommentRecord[] = data[day] || [];
-          const isCollapsed = collapsed[day] ?? (day !== days[0]); // 默认展开最新一天
+          const isCollapsed = collapsed[day] ?? (day !== days[0]);
           const displayComments = isCollapsed ? [] : comments.slice(0, 5);
           const hasMore = comments.length > 5;
 
           return (
             <div key={day} style={{ marginBottom: 8 }}>
-              {/* Day header */}
               <div
                 style={{
                   display: "flex",
@@ -134,7 +132,6 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
                 </Tag>
               </div>
 
-              {/* Comments */}
               {!isCollapsed && (
                 <div style={{ paddingLeft: 20 }}>
                   {displayComments.map((c) => {
@@ -162,7 +159,6 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
                           title="删除这条评论？"
                           onConfirm={() => onDelete(c.id)}
                           placement="left"
-                          key="delete"
                         >
                           <Button type="text" size="small" danger icon={<DeleteOutlined />} />
                         </Popconfirm>
@@ -183,10 +179,8 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
           );
         })}
 
-        {/* Input area */}
         <div style={{ display: "flex", gap: 8, marginTop: 8, paddingTop: 12, borderTop: "1px solid #f0f0f0" }}>
           <Input
-            ref={inputRef as any}
             placeholder="写点什么..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -213,7 +207,6 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
         onClose={() => setCalendarOpen(false)}
         onSelectDate={(date) => {
           setCalendarOpen(false);
-          // Expand the selected day
           setCollapsed((prev) => ({ ...prev, [date]: false }));
         }}
       />
