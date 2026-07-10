@@ -19,7 +19,8 @@ function formatDate(dateStr: string): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const ymd = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  const ymd = (dt: Date) =>
+    `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
   if (ymd(d) === ymd(today)) return "今天";
   if (ymd(d) === ymd(yesterday)) return "昨天";
   return `${d.getMonth() + 1}月${d.getDate()}日`;
@@ -69,9 +70,7 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
     }
   };
 
-  if (!loading && days.length === 0) {
-    return null;
-  }
+  const hasComments = !loading && days.length > 0;
 
   return (
     <>
@@ -107,16 +106,24 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
           )}
         </div>
 
+        {!hasComments && !loading && (
+          <div style={{ margin: "8px 0 12px", textAlign: "center" }}>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              还没有评论，来写点什么吧 ✍️
+            </Text>
+          </div>
+        )}
+
+        {/* Comment days */}
         {days.map((day) => {
           const comments: CommentRecord[] = data[day] || [];
           const isCollapsed = collapsed[day] ?? (day !== days[0]);
           const showAll = showAllMap[day] || false;
-          const displayComments = isCollapsed ? [] : (showAll ? comments : comments.slice(0, 5));
+          const displayComments = isCollapsed ? [] : showAll ? comments : comments.slice(0, 5);
           const hasMore = comments.length > 5;
 
           return (
             <div key={day} style={{ marginBottom: 8 }}>
-              {/* Day header */}
               <div
                 style={{
                   display: "flex",
@@ -137,7 +144,6 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
                 </Tag>
               </div>
 
-              {/* Comments */}
               {!isCollapsed && (
                 <div style={{ paddingLeft: 20 }}>
                   {displayComments.map((c) => {
@@ -173,13 +179,7 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
                       style={{ textAlign: "center", padding: "8px 0", cursor: "pointer" }}
                       onClick={(e) => { e.stopPropagation(); toggleShowAll(day); }}
                     >
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: "#ff6b35",
-                          fontWeight: 500,
-                        }}
-                      >
+                      <Text style={{ fontSize: 12, color: "#ff6b35", fontWeight: 500 }}>
                         {showAll ? (
                           <><UpOutlined style={{ fontSize: 10, marginRight: 4 }} />收起</>
                         ) : (
@@ -194,7 +194,14 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
           );
         })}
 
-        {/* Input area */}
+        {/* Loading state */}
+        {loading && (
+          <div style={{ textAlign: "center", padding: 12 }}>
+            <Text type="secondary">加载中...</Text>
+          </div>
+        )}
+
+        {/* Input area (always visible) */}
         <div style={{ display: "flex", gap: 8, marginTop: 8, paddingTop: 12, borderTop: "1px solid #f0f0f0" }}>
           <Input
             placeholder="写点什么..."
