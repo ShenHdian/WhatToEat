@@ -137,6 +137,7 @@ export default function App() {
 
   const handleDeleteComment = async (id: string) => {
     await deleteComment(id);
+    loadComments();
   };
 
   return (
