@@ -284,6 +284,15 @@ app.get("*", (req, res) => {
   }
 });
 
+
+// ─── Auto-init data files ──────────────────────────────
+[DATA_FILE, HISTORY_FILE, COMMENTS_FILE].forEach((f) => {
+  if (!fs.existsSync(f)) {
+    fs.writeFileSync(f, "[]", "utf-8");
+    console.log("Created:", path.basename(f));
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🍳 后端服务已启动: http://localhost:${PORT}`);
 });

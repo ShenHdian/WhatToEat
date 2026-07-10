@@ -2,4 +2,6 @@
 dist/
 .env
 server/dishes.json
+server/history.json
+server/comments.json
 *.log
