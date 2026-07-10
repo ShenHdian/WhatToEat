@@ -1,0 +1,15 @@
+{
+  "name": "breakfast-random",
+  "version": "1.0.0",
+  "description": "🍳 今天吃什么 - 随机菜品选取器",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"cd server && node server.js\" \"cd client && npm run dev\"",
+    "build": "cd client && npm run build",
+    "start": "cd server && node server.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
+

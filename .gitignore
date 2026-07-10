@@ -1,0 +1,5 @@
+﻿node_modules/
+dist/
+.env
+server/dishes.json
+*.log
