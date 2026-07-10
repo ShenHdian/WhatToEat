@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Typography, Button, Input, Popconfirm, Tag, message } from "antd";
-import { DeleteOutlined, DownOutlined, RightOutlined, SendOutlined, CalendarOutlined } from "@ant-design/icons";
+import { DeleteOutlined, DownOutlined, RightOutlined, SendOutlined, CalendarOutlined, UpOutlined } from "@ant-design/icons";
 import type { CommentsByDay, CommentRecord } from "../api/comments";
 import CommentCalendar from "./CommentCalendar";
 
@@ -19,9 +19,7 @@ function formatDate(dateStr: string): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-
   const ymd = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-
   if (ymd(d) === ymd(today)) return "今天";
   if (ymd(d) === ymd(yesterday)) return "昨天";
   return `${d.getMonth() + 1}月${d.getDate()}日`;
@@ -29,6 +27,7 @@ function formatDate(dateStr: string): string {
 
 export default function DailyComments({ data, loading, onAdd, onDelete, onRefresh }: DailyCommentsProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [showAllMap, setShowAllMap] = useState<Record<string, boolean>>({});
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -42,6 +41,10 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
 
   const toggleDay = (day: string) => {
     setCollapsed((prev) => ({ ...prev, [day]: !prev[day] }));
+  };
+
+  const toggleShowAll = (day: string) => {
+    setShowAllMap((prev) => ({ ...prev, [day]: !prev[day] }));
   };
 
   const handleSend = async () => {
@@ -107,11 +110,13 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
         {days.map((day) => {
           const comments: CommentRecord[] = data[day] || [];
           const isCollapsed = collapsed[day] ?? (day !== days[0]);
-          const displayComments = isCollapsed ? [] : comments.slice(0, 5);
+          const showAll = showAllMap[day] || false;
+          const displayComments = isCollapsed ? [] : (showAll ? comments : comments.slice(0, 5));
           const hasMore = comments.length > 5;
 
           return (
             <div key={day} style={{ marginBottom: 8 }}>
+              {/* Day header */}
               <div
                 style={{
                   display: "flex",
@@ -132,6 +137,7 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
                 </Tag>
               </div>
 
+              {/* Comments */}
               {!isCollapsed && (
                 <div style={{ paddingLeft: 20 }}>
                   {displayComments.map((c) => {
@@ -155,11 +161,7 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
                           </Text>
                           <Text style={{ fontSize: 14, lineHeight: 1.5 }}>{c.content}</Text>
                         </div>
-                        <Popconfirm
-                          title="删除这条评论？"
-                          onConfirm={() => onDelete(c.id)}
-                          placement="left"
-                        >
+                        <Popconfirm title="删除这条评论？" onConfirm={() => onDelete(c.id)} placement="left">
                           <Button type="text" size="small" danger icon={<DeleteOutlined />} />
                         </Popconfirm>
                       </div>
@@ -167,9 +169,22 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
                   })}
 
                   {hasMore && (
-                    <div style={{ textAlign: "center", padding: "8px 0" }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        ... 还有 {comments.length - 5} 条
+                    <div
+                      style={{ textAlign: "center", padding: "8px 0", cursor: "pointer" }}
+                      onClick={(e) => { e.stopPropagation(); toggleShowAll(day); }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: "#ff6b35",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {showAll ? (
+                          <><UpOutlined style={{ fontSize: 10, marginRight: 4 }} />收起</>
+                        ) : (
+                          <><DownOutlined style={{ fontSize: 10, marginRight: 4 }} />展开全部 {comments.length} 条</>
+                        )}
                       </Text>
                     </div>
                   )}
@@ -179,6 +194,7 @@ export default function DailyComments({ data, loading, onAdd, onDelete, onRefres
           );
         })}
 
+        {/* Input area */}
         <div style={{ display: "flex", gap: 8, marginTop: 8, paddingTop: 12, borderTop: "1px solid #f0f0f0" }}>
           <Input
             placeholder="写点什么..."
