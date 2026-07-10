@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_FILE = path.join(__dirname, "dishes.json");
 const HISTORY_FILE = path.join(__dirname, "history.json");
+const COMMENTS_FILE = path.join(__dirname, "comments.json");
 
 // Middleware
 app.use(cors());
@@ -50,6 +51,22 @@ function loadHistory() {
 
 function saveHistory(history) {
   fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf-8");
+}
+
+function loadComments() {
+  try {
+    if (fs.existsSync(COMMENTS_FILE)) {
+      const raw = fs.readFileSync(COMMENTS_FILE, "utf-8");
+      return JSON.parse(raw);
+    }
+  } catch (e) {
+    console.error("Error reading comments.json:", e.message);
+  }
+  return [];
+}
+
+function saveComments(comments) {
+  fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2), "utf-8");
 }
 
 // 获取 cutoff 时间：今天凌晨 4:00（若当前<4点则用昨天凌晨4点）
@@ -172,6 +189,85 @@ app.delete("/api/history/:id", (req, res) => {
   saveHistory(history);
   res.json(getFilteredHistory());
 });
+
+
+// ─── Comments API ──────────────────────────────────────────
+
+// POST /api/comments — 添加一条评论
+app.post("/api/comments", (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: "评论内容不能为空" });
+  }
+  const comments = loadComments();
+  const record = {
+    id: uuidv4(),
+    content: content.trim(),
+    createdAt: new Date().toISOString(),
+  };
+  comments.push(record);
+  saveComments(comments);
+  res.status(201).json(record);
+});
+
+// GET /api/comments?date=YYYY-MM-DD — 获取某天的所有评论
+// GET /api/comments/recent — 获取最近3天有评论的数据
+// GET /api/comments/calendar?month=YYYY-MM — 获取某月有评论的天
+app.get("/api/comments", (req, res) => {
+  const { date, month } = req.query;
+
+  if (month) {
+    // 日历查询：返回该月有评论的天数组
+    const comments = loadComments();
+    const days = new Set();
+    comments.forEach((c) => {
+      const d = new Date(c.createdAt);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (ym === month) {
+        days.add(String(d.getDate()));
+      }
+    });
+    return res.json(Array.from(days).sort((a, b) => a - b));
+  }
+
+  if (date) {
+    // 某天的评论
+    const comments = loadComments();
+    const filtered = comments
+      .filter((c) => c.createdAt.startsWith(date))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    return res.json(filtered);
+  }
+
+  // 最近3天有评论的数据（按天分组）
+  const comments = loadComments().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const grouped = {};
+  comments.forEach((c) => {
+    const day = c.createdAt.slice(0, 10);
+    if (!grouped[day]) grouped[day] = [];
+    grouped[day].push(c);
+  });
+
+  const sortedDays = Object.keys(grouped).sort().reverse().slice(0, 3);
+  const result = {};
+  sortedDays.forEach((day) => {
+    result[day] = grouped[day].reverse();
+  });
+  res.json(result);
+});
+
+// DELETE /api/comments/:id — 删除一条评论
+app.delete("/api/comments/:id", (req, res) => {
+  const comments = loadComments();
+  const index = comments.findIndex((c) => c.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: "评论不存在" });
+  }
+  comments.splice(index, 1);
+  saveComments(comments);
+  res.json({ success: true });
+});
+
 
 // Health check
 app.get("/api/health", (req, res) => {

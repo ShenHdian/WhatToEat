@@ -5,8 +5,10 @@ import DishList from "./components/DishList";
 import AddDishModal from "./components/AddDishModal";
 import RandomPicker from "./components/RandomPicker";
 import HistoryCard from "./components/HistoryCard";
+import DailyComments from "./components/DailyComments";
 import type { Dish } from "./types/dish";
 import type { HistoryRecord } from "./api/dishes";
+import type { CommentsByDay } from "./api/comments";
 import {
   fetchDishes,
   addDish,
@@ -17,6 +19,11 @@ import {
   addHistoryRecord,
   deleteHistoryRecord,
 } from "./api/dishes";
+import {
+  addComment,
+  fetchRecentComments,
+  deleteComment,
+} from "./api/comments";
 import "./App.css";
 
 const { Header, Content } = Layout;
@@ -29,6 +36,8 @@ export default function App() {
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [commentsData, setCommentsData] = useState<CommentsByDay>({});
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const loadDishes = useCallback(async () => {
     setLoading(true);
@@ -48,16 +57,29 @@ export default function App() {
       const data = await fetchHistory();
       setHistory(data);
     } catch {
-      // silent fail for history
+      // silent
     } finally {
       setHistoryLoading(false);
+    }
+  }, []);
+
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true);
+    try {
+      const data = await fetchRecentComments();
+      setCommentsData(data);
+    } catch {
+      // silent
+    } finally {
+      setCommentsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadDishes();
     loadHistory();
-  }, [loadDishes, loadHistory]);
+    loadComments();
+  }, [loadDishes, loadHistory, loadComments]);
 
   const handleAdd = () => {
     setEditingDish(null);
@@ -109,6 +131,14 @@ export default function App() {
     return dish;
   };
 
+  const handleAddComment = async (content: string) => {
+    await addComment(content);
+  };
+
+  const handleDeleteComment = async (id: string) => {
+    await deleteComment(id);
+  };
+
   return (
     <Layout style={{ minHeight: "100vh", background: "#fff8f0" }}>
       <Header
@@ -147,6 +177,15 @@ export default function App() {
           records={history}
           loading={historyLoading}
           onDelete={handleDeleteHistory}
+        />
+
+        {/* Daily comments */}
+        <DailyComments
+          data={commentsData}
+          loading={commentsLoading}
+          onAdd={handleAddComment}
+          onDelete={handleDeleteComment}
+          onRefresh={loadComments}
         />
 
         {/* Dish management */}
