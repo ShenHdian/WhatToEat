@@ -27,6 +27,7 @@ fuser -k 3001/tcp 2>/dev/null
 sleep 1
 
 cd /etc/whattoeat/server
+pm2 delete whattoeat 2>/dev/null
 pm2 start server.js --name whattoeat --update-env
 pm2 save
 
