@@ -41,12 +41,15 @@ function loadHistory() {
   try {
     if (fs.existsSync(HISTORY_FILE)) {
       const raw = fs.readFileSync(HISTORY_FILE, "utf-8");
-      return JSON.parse(raw);
+      const data = JSON.parse(raw);
+      // 兼容：旧格式是数组，新格式是对象
+      if (Array.isArray(data)) return {};
+      return data;
     }
   } catch (e) {
     console.error("Error reading history.json:", e.message);
   }
-  return [];
+  return {};
 }
 
 function saveHistory(history) {
@@ -82,7 +85,7 @@ function getBizDate() {
 // 过滤历史：只保留 bizDate 对应的记录
 function getFilteredHistory() {
   const bizDate = getBizDate();
-  return loadHistory().filter((h) => h.bizDate === bizDate);
+  return loadHistory()[bizDate] || [];
 }
 
 // ─── API Routes ─────────────────────────────────────────────
@@ -166,24 +169,10 @@ app.post("/api/history", (req, res) => {
   const history = loadHistory();
   const bizDate = getBizDate();
 
-  // 每天最多保留3条，超过则删除最早的
-  const todayRecords = history.filter((h) => h.bizDate === bizDate);
-  if (todayRecords.length >= 3) {
-    todayRecords.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    const oldestId = todayRecords[0].id;
-    const removeIdx = history.findIndex((h) => h.id === oldestId);
-    if (removeIdx !== -1) history.splice(removeIdx, 1);
-  }
-
-  const record = {
-    id: uuidv4(),
-    dishName: dishName.trim(),
-    createdAt: new Date().toISOString(),
-    bizDate: bizDate,
-  };
-  history.push(record);
+  if (!history[bizDate]) history[bizDate] = [];
+  history[bizDate].push(dishName.trim());
+  if (history[bizDate].length > 3) history[bizDate].shift();
   saveHistory(history);
-  // 返回过滤后的列表（前端直接更新）
   res.status(201).json(getFilteredHistory());
 });
 
@@ -210,10 +199,9 @@ app.get("/api/calendar", (req, res) => {
 
   // 从 history 中取每天的所有菜
   const history = loadHistory();
-  history.forEach((h) => {
-    const day = h.bizDate || h.createdAt.slice(0, 10);
+  Object.keys(history).forEach((day) => {
     if (result[day]) {
-      result[day].dishes.push(h.dishName);
+      result[day].dishes = history[day];
     }
   });
 
