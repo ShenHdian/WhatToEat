@@ -10,6 +10,15 @@ export interface CommentsByDay {
   [date: string]: CommentRecord[];
 }
 
+export interface CalendarDay {
+  dishName: string | null;
+  commentCount: number;
+}
+
+export interface CalendarData {
+  [date: string]: CalendarDay;
+}
+
 export async function addComment(content: string): Promise<CommentRecord> {
   const res = await fetch(`${API_BASE}/comments`, {
     method: "POST",
@@ -43,4 +52,10 @@ export async function deleteComment(id: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("删除评论失败");
+}
+
+export async function fetchCalendar(month: string): Promise<CalendarData> {
+  const res = await fetch(`${API_BASE}/calendar?month=${month}`);
+  if (!res.ok) throw new Error("获取日历数据失败");
+  return res.json();
 }

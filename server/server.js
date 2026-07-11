@@ -191,6 +191,46 @@ app.delete("/api/history/:id", (req, res) => {
 });
 
 
+
+// ─── Calendar API ──────────────────────────────────────────
+
+// GET /api/calendar?month=YYYY-MM — 获取某月每天的汇总数据
+app.get("/api/calendar", (req, res) => {
+  const { month } = req.query;
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: "参数格式错误，请使用 YYYY-MM" });
+  }
+
+  const [year, mon] = month.split("-").map(Number);
+  const daysInMonth = new Date(year, mon, 0).getDate();
+  const result = {};
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = month + "-" + String(d).padStart(2, "0");
+    result[dateStr] = { dishName: null, commentCount: 0 };
+  }
+
+  // 从 history 中取每天最后一道菜
+  const history = loadHistory().reverse();
+  history.forEach((h) => {
+    const day = h.createdAt.slice(0, 10);
+    if (result[day] && !result[day].dishName) {
+      result[day].dishName = h.dishName;
+    }
+  });
+
+  // 从 comments 中统计每天数量
+  const comments = loadComments();
+  comments.forEach((c) => {
+    const day = c.createdAt.slice(0, 10);
+    if (result[day]) {
+      result[day].commentCount++;
+    }
+  });
+
+  res.json(result);
+});
+
 // ─── Comments API ──────────────────────────────────────────
 
 // POST /api/comments — 添加一条评论

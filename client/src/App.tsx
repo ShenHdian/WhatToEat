@@ -4,26 +4,16 @@ import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import DishList from "./components/DishList";
 import AddDishModal from "./components/AddDishModal";
 import RandomPicker from "./components/RandomPicker";
-import HistoryCard from "./components/HistoryCard";
-import DailyComments from "./components/DailyComments";
+import CalendarJournal from "./components/CalendarJournal";
 import type { Dish } from "./types/dish";
-import type { HistoryRecord } from "./api/dishes";
-import type { CommentsByDay } from "./api/comments";
 import {
   fetchDishes,
   addDish,
   updateDish,
   deleteDish,
   getRandomDish,
-  fetchHistory,
   addHistoryRecord,
-  deleteHistoryRecord,
 } from "./api/dishes";
-import {
-  addComment,
-  fetchRecentComments,
-  deleteComment,
-} from "./api/comments";
 import "./App.css";
 
 const { Header, Content } = Layout;
@@ -34,10 +24,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
-  const [history, setHistory] = useState<HistoryRecord[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [commentsData, setCommentsData] = useState<CommentsByDay>({});
-  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const loadDishes = useCallback(async () => {
     setLoading(true);
@@ -51,35 +37,9 @@ export default function App() {
     }
   }, []);
 
-  const loadHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    try {
-      const data = await fetchHistory();
-      setHistory(data);
-    } catch {
-      // silent
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, []);
-
-  const loadComments = useCallback(async () => {
-    setCommentsLoading(true);
-    try {
-      const data = await fetchRecentComments();
-      setCommentsData(data);
-    } catch {
-      // silent
-    } finally {
-      setCommentsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadDishes();
-    loadHistory();
-    loadComments();
-  }, [loadDishes, loadHistory, loadComments]);
+  }, [loadDishes]);
 
   const handleAdd = () => {
     setEditingDish(null);
@@ -113,31 +73,10 @@ export default function App() {
     await loadDishes();
   };
 
-  const handleDeleteHistory = async (id: string) => {
-    try {
-      const updated = await deleteHistoryRecord(id);
-      setHistory(updated);
-      message.success("已删除");
-    } catch {
-      message.error("删除失败");
-    }
-  };
-
   const handleRandomPick = async (): Promise<Dish> => {
     const dish = await getRandomDish();
-    addHistoryRecord(dish.name).then((newHistory) => {
-      setHistory(newHistory);
-    }).catch(() => {});
+    addHistoryRecord(dish.name).catch(() => {});
     return dish;
-  };
-
-  const handleAddComment = async (content: string) => {
-    await addComment(content);
-  };
-
-  const handleDeleteComment = async (id: string) => {
-    await deleteComment(id);
-    loadComments();
   };
 
   return (
@@ -173,21 +112,8 @@ export default function App() {
           <RandomPicker dishes={dishes} onPick={handleRandomPick} />
         </div>
 
-        {/* History card */}
-        <HistoryCard
-          records={history}
-          loading={historyLoading}
-          onDelete={handleDeleteHistory}
-        />
-
-        {/* Daily comments */}
-        <DailyComments
-          data={commentsData}
-          loading={commentsLoading}
-          onAdd={handleAddComment}
-          onDelete={handleDeleteComment}
-          onRefresh={loadComments}
-        />
+        {/* Calendar Journal - replaces HistoryCard + DailyComments */}
+        <CalendarJournal />
 
         {/* Dish management */}
         <div
