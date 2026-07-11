@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Typography, Button, Input, Popconfirm, message, Spin, Tag } from "antd";
-import { LeftOutlined, RightOutlined, DeleteOutlined, SendOutlined, DownOutlined, UpOutlined } from "@ant-design/icons";
+import { Typography, Button, Input, Popconfirm, message, Spin, Tag, Tooltip } from "antd";
+import { LeftOutlined, RightOutlined, DeleteOutlined, SendOutlined, DownOutlined, UpOutlined, LockOutlined } from "@ant-design/icons";
 import type { CalendarData, CommentRecord } from "../api/comments";
 import { fetchCalendar, fetchCommentsByDate, deleteComment, addComment } from "../api/comments";
 
@@ -17,6 +17,10 @@ function getEmoji(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
   return FOOD_EMOJIS[Math.abs(hash) % FOOD_EMOJIS.length];
+}
+
+function truncate(str: string, max: number): string {
+  return str.length > max ? str.slice(0, max) + ".." : str;
 }
 
 export default function CalendarJournal({ onRefresh }: CalendarJournalProps) {
@@ -59,14 +63,13 @@ export default function CalendarJournal({ onRefresh }: CalendarJournalProps) {
   }, [selectedDate]);
 
   const daysInMonth = new Date(year, month, 0).getDate();
-  const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
-  const firstDayIndex = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+  const firstDayWeek = new Date(year, month - 1, 1).getDay();
+  const firstIdx = firstDayWeek === 0 ? 6 : firstDayWeek - 1;
 
   const prevMonth = () => {
     if (month === 1) { setYear(year - 1); setMonth(12); }
     else { setMonth(month - 1); }
   };
-
   const nextMonth = () => {
     if (month === 12) { setYear(year + 1); setMonth(1); }
     else { setMonth(month + 1); }
@@ -112,110 +115,94 @@ export default function CalendarJournal({ onRefresh }: CalendarJournalProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const selectedDay = calendarData[selectedDate || ""];
   const displayComments = showAll ? comments : comments.slice(0, 5);
-  const hasMoreComments = comments.length > 5;
+  const hasMore = comments.length > 5;
+  const isToday = selectedDate === todayStr;
 
   return (
     <div style={{
       background: "#fff", borderRadius: 16, padding: "16px", marginBottom: 16,
       boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
     }}>
-      {/* Header */}
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16,
-      }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <Button type="text" icon={<LeftOutlined />} onClick={prevMonth} />
         <Text strong style={{ fontSize: 17 }}>&#x1F4C5; {year}年{month}月</Text>
         <Button type="text" icon={<RightOutlined />} onClick={nextMonth} />
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: "center", padding: 30 }}><Spin /></div>
-      ) : (
+      {loading ? <div style={{ textAlign: "center", padding: 30 }}><Spin /></div> : (
         <>
           {/* Grid */}
-          <div style={{
-            display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8,
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 8 }}>
             {WEEKDAYS.map((d) => (
-              <div key={d} style={{ textAlign: "center", fontSize: 12, color: "#999", padding: "4px 0", fontWeight: 500 }}>
-                {d}
-              </div>
+              <div key={d} style={{ textAlign: "center", fontSize: 11, color: "#999", padding: "2px 0", fontWeight: 500 }}>{d}</div>
             ))}
-            {Array.from({ length: firstDayIndex }, (_, i) => <div key={`e-${i}`} />)}
+            {Array.from({ length: firstIdx }, (_, i) => <div key={`e-${i}`} />)}
             {Array.from({ length: daysInMonth }, (_, i) => {
               const day = i + 1;
-              const dateStr = `${monthKey}-${String(day).padStart(2, "0")}`;
-              const data = calendarData[dateStr];
-              const isToday = dateStr === todayStr;
-              const isSelected = dateStr === selectedDate;
-              const dishes = data?.dishes || [];
-              const hasComment = (data?.commentCount || 0) > 0;
+              const ds = `${monthKey}-${String(day).padStart(2, "0")}`;
+              const d = calendarData[ds];
+              const itsToday = ds === todayStr;
+              const itsSelected = ds === selectedDate;
+              const dishes = d?.dishes || [];
+              const hasComment = (d?.commentCount || 0) > 0;
 
               return (
-                <div
-                  key={day}
-                  onClick={() => handleDayClick(day)}
-                  style={{
-                    position: "relative", padding: "4px 2px", textAlign: "center", cursor: "pointer",
-                    borderRadius: 10,
-                    background: isSelected ? "linear-gradient(135deg, #ff6b35, #ff8c5a)"
-                      : isToday ? "#fff3ed" : "transparent",
-                    color: isSelected ? "#fff" : isToday ? "#ff6b35" : "#333",
-                    fontWeight: isSelected || isToday ? 700 : 400,
-                    fontSize: 14, transition: "all 0.2s",
-                    minHeight: 44, display: "flex", flexDirection: "column",
-                    alignItems: "center", justifyContent: "center", gap: 1,
-                  }}
-                >
-                  <span style={{ lineHeight: 1.2 }}>{day}</span>
-                  {dishes.length > 0 && (
-                    <span style={{ fontSize: 10, lineHeight: 1, opacity: 0.85 }}>
-                      {dishes.length > 1 ? getEmoji(dishes[0]) + "+" + (dishes.length - 1) : getEmoji(dishes[0])}
-                    </span>
-                  )}
-                  {hasComment && (
-                    <span style={{
-                      position: "absolute", top: 3, right: 5,
-                      width: 5, height: 5, borderRadius: "50%",
-                      background: isSelected ? "#fff" : "#ff6b35",
-                    }} />
-                  )}
-                </div>
+                <Tooltip key={day} title={dishes.length > 0 ? dishes.join(", ") : undefined}>
+                  <div onClick={() => handleDayClick(day)} style={{
+                    padding: "3px", textAlign: "center", cursor: "pointer", borderRadius: 8,
+                    background: itsSelected ? "linear-gradient(135deg, #ff6b35, #ff8c5a)" : itsToday ? "#fff3ed" : "transparent",
+                    color: itsSelected ? "#fff" : itsToday ? "#ff6b35" : "#333",
+                    fontWeight: itsSelected || itsToday ? 700 : 400, fontSize: 13,
+                    transition: "all 0.2s", minHeight: 54,
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1,
+                    position: "relative",
+                  }}>
+                    <span style={{ lineHeight: 1.3 }}>{day}</span>
+                    {dishes.slice(0, 3).map((name: string, idx: number) => (
+                      <Tooltip key={idx} title={name}>
+                        <span style={{ fontSize: 9, lineHeight: 1.2, opacity: 0.85, whiteSpace: "nowrap" }}>
+                          {getEmoji(name)} {truncate(name, 4)}
+                        </span>
+                      </Tooltip>
+                    ))}
+                    {hasComment && (
+                      <span style={{
+                        position: "absolute", top: 2, right: 3, width: 4, height: 4,
+                        borderRadius: "50%", background: itsSelected ? "#fff" : "#ff6b35",
+                      }} />
+                    )}
+                  </div>
+                </Tooltip>
               );
             })}
           </div>
 
-          {/* Detail panel - always visible */}
-          {selectedDate && (
+          {/* Detail panel */}
+          {selectedDate && selectedDay && (
             <div style={{
               background: "linear-gradient(135deg, #fef9f4, #fff)", borderRadius: 14,
               padding: "14px", marginTop: 8, border: "1px solid #f5ebe0",
               animation: "fadeIn 0.25s ease",
             }}>
-              {/* Date + dishes */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+              {/* Header + dishes */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                 <div style={{
-                  background: selectedDate === todayStr ? "linear-gradient(135deg, #ff6b35, #ff8c5a)" : "#f5f5f5",
-                  color: selectedDate === todayStr ? "#fff" : "#666",
-                  borderRadius: 10, padding: "6px 14px", fontSize: 14, fontWeight: 600,
+                  background: isToday ? "linear-gradient(135deg, #ff6b35, #ff8c5a)" : "#f5f5f5",
+                  color: isToday ? "#fff" : "#666",
+                  borderRadius: 10, padding: "4px 12px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
                 }}>
                   {selectedDate}
                 </div>
-                {selectedDay && selectedDay.dishes.map((dish: string, i: number) => (
-                  <Tag key={i} style={{ fontSize: 12, borderRadius: 6, margin: 0 }}>
-                    {getEmoji(dish)} {dish}
-                  </Tag>
+                {selectedDay.dishes.map((name: string, idx: number) => (
+                  <Tag key={idx} style={{ fontSize: 11, borderRadius: 6, margin: 0 }}>{getEmoji(name)} {name}</Tag>
                 ))}
-                {selectedDay && selectedDay.dishes.length === 0 && (
-                  <Text type="secondary" style={{ fontSize: 13 }}>没有摇菜记录</Text>
+                {selectedDay.dishes.length === 0 && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>没有摇菜记录</Text>
                 )}
               </div>
 
@@ -228,9 +215,7 @@ export default function CalendarJournal({ onRefresh }: CalendarJournalProps) {
                 {commentsLoading ? (
                   <div style={{ textAlign: "center", padding: 12 }}><Spin size="small" /></div>
                 ) : displayComments.length === 0 ? (
-                  <Text type="secondary" style={{ fontSize: 13, display: "block", margin: "4px 0 8px", color: "#bbb" }}>
-                    还没有评论
-                  </Text>
+                  <Text type="secondary" style={{ fontSize: 13, display: "block", margin: "4px 0 8px", color: "#bbb" }}>还没有评论</Text>
                 ) : (
                   <div style={{ marginBottom: 8 }}>
                     {displayComments.map((c) => {
@@ -239,47 +224,51 @@ export default function CalendarJournal({ onRefresh }: CalendarJournalProps) {
                       return (
                         <div key={c.id} style={{
                           display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-                          padding: "6px 8px", marginBottom: 4, background: "#fff",
+                          padding: "5px 8px", marginBottom: 4, background: "#fff",
                           borderRadius: 8, border: "1px solid #f5f0eb", gap: 8,
                         }}>
                           <Text style={{ fontSize: 13, flex: 1 }}>
                             <Tag style={{ fontSize: 10, marginRight: 4, border: "none", background: "#f5f0eb" }}>{ts}</Tag>
                             {c.content}
                           </Text>
-                          <Popconfirm title="删除这条评论？" onConfirm={() => handleDeleteComment(c.id)} placement="left">
-                            <Button type="text" size="small" danger icon={<DeleteOutlined style={{ fontSize: 13 }} />} />
-                          </Popconfirm>
+                          {isToday && (
+                            <Popconfirm title="删除这条评论？" onConfirm={() => handleDeleteComment(c.id)} placement="left">
+                              <Button type="text" size="small" danger icon={<DeleteOutlined style={{ fontSize: 12 }} />} />
+                            </Popconfirm>
+                          )}
                         </div>
                       );
                     })}
-                    {hasMoreComments && (
+                    {hasMore && (
                       <div style={{ textAlign: "center", padding: "6px 0", cursor: "pointer" }}
                         onClick={() => setShowAll(!showAll)}>
                         <Text style={{ fontSize: 12, color: "#ff6b35", fontWeight: 500 }}>
-                          {showAll ? (
-                            <><UpOutlined style={{ fontSize: 10, marginRight: 4 }} />收起</>
-                          ) : (
-                            <><DownOutlined style={{ fontSize: 10, marginRight: 4 }} />展开全部 {comments.length} 条</>
-                          )}
+                          {showAll ? <><UpOutlined style={{ fontSize: 10, marginRight: 4 }} />收起</>
+                            : <><DownOutlined style={{ fontSize: 10, marginRight: 4 }} />展开全部 {comments.length} 条</>}
                         </Text>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Input */}
-                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                  <Input placeholder="写点什么..." value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    size="small" style={{ flex: 1, borderRadius: 8, borderColor: "#e8ddd0" }} />
-                  <Button type="primary" size="small" icon={<SendOutlined />}
-                    loading={sending} disabled={!inputText.trim()}
-                    onClick={handleSend}
-                    style={{ background: "#ff6b35", borderColor: "#ff6b35", borderRadius: 8 }}>
-                    发送
-                  </Button>
-                </div>
+                {/* Input - only for today */}
+                {isToday ? (
+                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    <Input placeholder="写点什么..." value={inputText}
+                      onChange={(e) => setInputText(e.target.value)} onKeyDown={handleKeyDown}
+                      size="small" style={{ flex: 1, borderRadius: 8, borderColor: "#e8ddd0" }} />
+                    <Button type="primary" size="small" icon={<SendOutlined />}
+                      loading={sending} disabled={!inputText.trim()}
+                      onClick={handleSend}
+                      style={{ background: "#ff6b35", borderColor: "#ff6b35", borderRadius: 8 }}>发送</Button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "8px 0" }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      <LockOutlined style={{ marginRight: 4 }} />该日记录已锁定
+                    </Text>
+                  </div>
+                )}
               </div>
             </div>
           )}

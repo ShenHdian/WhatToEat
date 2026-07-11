@@ -24,6 +24,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadDishes = useCallback(async () => {
     setLoading(true);
@@ -41,29 +42,13 @@ export default function App() {
     loadDishes();
   }, [loadDishes]);
 
-  const handleAdd = () => {
-    setEditingDish(null);
-    setModalOpen(true);
-  };
-
-  const handleEdit = (dish: Dish) => {
-    setEditingDish(dish);
-    setModalOpen(true);
-  };
-
-  const handleModalClose = () => {
-    setModalOpen(false);
-    setEditingDish(null);
-  };
+  const handleAdd = () => { setEditingDish(null); setModalOpen(true); };
+  const handleEdit = (dish: Dish) => { setEditingDish(dish); setModalOpen(true); };
+  const handleModalClose = () => { setModalOpen(false); setEditingDish(null); };
 
   const handleSave = async (name: string) => {
-    if (editingDish) {
-      await updateDish(editingDish.id, name);
-      message.success("已更新 ✅");
-    } else {
-      await addDish(name);
-      message.success("已添加 ✅");
-    }
+    if (editingDish) { await updateDish(editingDish.id, name); message.success("已更新 ✅"); }
+    else { await addDish(name); message.success("已添加 ✅"); }
     await loadDishes();
   };
 
@@ -75,21 +60,18 @@ export default function App() {
 
   const handleRandomPick = async (): Promise<Dish> => {
     const dish = await getRandomDish();
-    addHistoryRecord(dish.name).catch(() => {});
+    await addHistoryRecord(dish.name);
+    // Trigger calendar refresh
+    setRefreshKey((k) => k + 1);
     return dish;
   };
 
   return (
     <Layout style={{ minHeight: "100vh", background: "#fff8f0" }}>
-      <Header
-        style={{
-          background: "linear-gradient(135deg, #ff6b35, #ff8c5a)",
-          textAlign: "center",
-          height: "auto",
-          padding: "20px 16px",
-          lineHeight: 1.5,
-        }}
-      >
+      <Header style={{
+        background: "linear-gradient(135deg, #ff6b35, #ff8c5a)",
+        textAlign: "center", height: "auto", padding: "20px 16px", lineHeight: 1.5,
+      }}>
         <Title level={3} style={{ margin: 0, color: "#fff", fontSize: 22 }}>
           🍳 今天吃什么
         </Title>
@@ -99,84 +81,36 @@ export default function App() {
       </Header>
 
       <Content style={{ maxWidth: 600, margin: "0 auto", padding: "16px", width: "100%" }}>
-        {/* Random picker */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: "16px 16px 8px",
-            marginBottom: 16,
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-          }}
-        >
+        <div style={{
+          background: "#fff", borderRadius: 16, padding: "16px 16px 8px",
+          marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+        }}>
           <RandomPicker dishes={dishes} onPick={handleRandomPick} />
         </div>
 
-        {/* Calendar Journal - replaces HistoryCard + DailyComments */}
-        <CalendarJournal />
+        <CalendarJournal key={refreshKey} />
 
-        {/* Dish management */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: "16px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
+        <div style={{
+          background: "#fff", borderRadius: 16, padding: "16px",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <Title level={5} style={{ margin: 0 }}>
               📋 我的菜品
-              <Badge
-                count={dishes.length}
-                style={{ marginLeft: 8, backgroundColor: "#ff6b35" }}
-                overflowCount={999}
-              />
+              <Badge count={dishes.length} style={{ marginLeft: 8, backgroundColor: "#ff6b35" }} overflowCount={999} />
             </Title>
             <div style={{ display: "flex", gap: 8 }}>
-              <Button
-                icon={<ReloadOutlined />}
-                size="small"
-                onClick={loadDishes}
-              >
-                刷新
-              </Button>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                size="small"
-                onClick={handleAdd}
-                style={{ background: "#ff6b35", borderColor: "#ff6b35" }}
-              >
-                添加
-              </Button>
+              <Button icon={<ReloadOutlined />} size="small" onClick={loadDishes}>刷新</Button>
+              <Button type="primary" icon={<PlusOutlined />} size="small" onClick={handleAdd}
+                style={{ background: "#ff6b35", borderColor: "#ff6b35" }}>添加</Button>
             </div>
           </div>
-
           <Divider style={{ margin: "8px 0 12px" }} />
-
-          <DishList
-            dishes={dishes}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            loading={loading}
-          />
+          <DishList dishes={dishes} onEdit={handleEdit} onDelete={handleDelete} loading={loading} />
         </div>
       </Content>
 
-      <AddDishModal
-        open={modalOpen}
-        editingDish={editingDish}
-        onClose={handleModalClose}
-        onSave={handleSave}
-      />
+      <AddDishModal open={modalOpen} editingDish={editingDish} onClose={handleModalClose} onSave={handleSave} />
     </Layout>
   );
 }

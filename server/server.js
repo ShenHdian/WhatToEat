@@ -69,9 +69,8 @@ function saveComments(comments) {
   fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2), "utf-8");
 }
 
-// 获取 cutoff 时间：今天凌晨 4:00（若当前<4点则用昨天凌晨4点）
+// 中午12点前归前一天，12点后归当天
 function getBizDate() {
-  // 中午12点前归前一天，12点后归当天
   const now = new Date();
   const d = new Date(now);
   if (d.getHours() < 12) {
@@ -165,11 +164,22 @@ app.post("/api/history", (req, res) => {
     return res.status(400).json({ error: "菜品名称不能为空" });
   }
   const history = loadHistory();
+  const bizDate = getBizDate();
+
+  // 每天最多保留3条，超过则删除最早的
+  const todayRecords = history.filter((h) => h.bizDate === bizDate);
+  if (todayRecords.length >= 3) {
+    todayRecords.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const oldestId = todayRecords[0].id;
+    const removeIdx = history.findIndex((h) => h.id === oldestId);
+    if (removeIdx !== -1) history.splice(removeIdx, 1);
+  }
+
   const record = {
     id: uuidv4(),
     dishName: dishName.trim(),
     createdAt: new Date().toISOString(),
-    bizDate: getBizDate(),
+    bizDate: bizDate,
   };
   history.push(record);
   saveHistory(history);
