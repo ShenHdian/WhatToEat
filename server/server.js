@@ -70,21 +70,20 @@ function saveComments(comments) {
 }
 
 // 获取 cutoff 时间：今天凌晨 4:00（若当前<4点则用昨天凌晨4点）
-function getCutoffTime() {
+function getBizDate() {
+  // 中午12点前归前一天，12点后归当天
   const now = new Date();
-  const cutoff = new Date(now);
-  cutoff.setHours(4, 0, 0, 0);
-  if (now < cutoff) {
-    // 还没到今早4点，回退一天
-    cutoff.setDate(cutoff.getDate() - 1);
+  const d = new Date(now);
+  if (d.getHours() < 12) {
+    d.setDate(d.getDate() - 1);
   }
-  return cutoff;
+  return d.toISOString().slice(0, 10);
 }
 
-// 过滤历史：只保留 cutoff 之后的记录
+// 过滤历史：只保留 bizDate 对应的记录
 function getFilteredHistory() {
-  const cutoff = getCutoffTime();
-  return loadHistory().filter((h) => new Date(h.createdAt) >= cutoff);
+  const bizDate = getBizDate();
+  return loadHistory().filter((h) => h.bizDate === bizDate);
 }
 
 // ─── API Routes ─────────────────────────────────────────────
@@ -170,6 +169,7 @@ app.post("/api/history", (req, res) => {
     id: uuidv4(),
     dishName: dishName.trim(),
     createdAt: new Date().toISOString(),
+    bizDate: getBizDate(),
   };
   history.push(record);
   saveHistory(history);
@@ -177,18 +177,6 @@ app.post("/api/history", (req, res) => {
   res.status(201).json(getFilteredHistory());
 });
 
-
-// DELETE /api/history/:id — 删除一条摇菜记录
-app.delete("/api/history/:id", (req, res) => {
-  const history = loadHistory();
-  const index = history.findIndex((h) => h.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: "记录不存在" });
-  }
-  history.splice(index, 1);
-  saveHistory(history);
-  res.json(getFilteredHistory());
-});
 
 
 
@@ -207,22 +195,22 @@ app.get("/api/calendar", (req, res) => {
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = month + "-" + String(d).padStart(2, "0");
-    result[dateStr] = { dishName: null, commentCount: 0 };
+    result[dateStr] = { dishes: [], commentCount: 0 };
   }
 
-  // 从 history 中取每天最后一道菜
-  const history = loadHistory().reverse();
+  // 从 history 中取每天的所有菜
+  const history = loadHistory();
   history.forEach((h) => {
-    const day = h.createdAt.slice(0, 10);
-    if (result[day] && !result[day].dishName) {
-      result[day].dishName = h.dishName;
+    const day = h.bizDate || h.createdAt.slice(0, 10);
+    if (result[day]) {
+      result[day].dishes.push(h.dishName);
     }
   });
 
   // 从 comments 中统计每天数量
   const comments = loadComments();
   comments.forEach((c) => {
-    const day = c.createdAt.slice(0, 10);
+    const day = c.bizDate || c.createdAt.slice(0, 10);
     if (result[day]) {
       result[day].commentCount++;
     }
@@ -244,6 +232,7 @@ app.post("/api/comments", (req, res) => {
     id: uuidv4(),
     content: content.trim(),
     createdAt: new Date().toISOString(),
+    bizDate: getBizDate(),
   };
   comments.push(record);
   saveComments(comments);
@@ -271,10 +260,10 @@ app.get("/api/comments", (req, res) => {
   }
 
   if (date) {
-    // 某天的评论
+    // 某天的评论（按 bizDate 或 createdAt 匹配）
     const comments = loadComments();
     const filtered = comments
-      .filter((c) => c.createdAt.startsWith(date))
+      .filter((c) => (c.bizDate || c.createdAt.slice(0, 10)) === date)
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     return res.json(filtered);
   }

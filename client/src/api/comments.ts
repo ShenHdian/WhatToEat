@@ -11,7 +11,7 @@ export interface CommentsByDay {
 }
 
 export interface CalendarDay {
-  dishName: string | null;
+  dishes: string[];
   commentCount: number;
 }
 
