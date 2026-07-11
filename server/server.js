@@ -315,7 +315,7 @@ app.get("*", (req, res) => {
 // ─── Auto-init data files ──────────────────────────────
 [DATA_FILE, HISTORY_FILE, COMMENTS_FILE].forEach((f) => {
   if (!fs.existsSync(f)) {
-    fs.writeFileSync(f, "[]", "utf-8");
+    fs.writeFileSync(f, f.endsWith("history.json") ? "{}" : "[]", "utf-8");
     console.log("Created:", path.basename(f));
   }
 });
