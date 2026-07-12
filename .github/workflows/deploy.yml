@@ -1,0 +1,41 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /etc/whattoeat
+
+            # Backup user data
+            cp server/dishes.json /tmp/dishes_backup.json 2>/dev/null || true
+            cp server/data.db /tmp/data_backup.db 2>/dev/null || true
+
+            git pull origin master
+
+            # Restore user data
+            cp /tmp/dishes_backup.json server/dishes.json 2>/dev/null || true
+            cp /tmp/data_backup.db server/data.db 2>/dev/null || true
+
+            cd /etc/whattoeat/server && npm install
+            cd /etc/whattoeat/client && npm install
+
+            cd /etc/whattoeat/client && npm run build
+
+            fuser -k 3001/tcp 2>/dev/null || true
+            sleep 1
+
+            cd /etc/whattoeat/server
+            pm2 delete whattoeat 2>/dev/null || true
+            pm2 start server.js --name whattoeat --update-env
+            pm2 save
