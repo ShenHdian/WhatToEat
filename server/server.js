@@ -2,30 +2,30 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
-const { v4: uuidv4 } = require("uuid");
+const { knex, initDB, getBizDate } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const DATA_FILE = path.join(__dirname, "dishes.json");
-const HISTORY_FILE = path.join(__dirname, "history.json");
-const COMMENTS_FILE = path.join(__dirname, "comments.json");
+const clientDist = path.join(__dirname, "..", "client", "dist");
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
 // Serve static files in production
-const clientDist = path.join(__dirname, "..", "client", "dist");
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
 }
 
-// ─── Data helpers ───────────────────────────────────────────
+// ─── Init DB on startup ──────────────────────────────────
+initDB().catch((e) => console.error("DB init error:", e));
+
+// ─── Dishes API (keep JSON) ──────────────────────────────
+const DATA_FILE = path.join(__dirname, "dishes.json");
+
 function loadDishes() {
   try {
     if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, "utf-8");
-      return JSON.parse(raw);
+      return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
     }
   } catch (e) {
     console.error("Error reading dishes.json:", e.message);
@@ -37,152 +37,85 @@ function saveDishes(dishes) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(dishes, null, 2), "utf-8");
 }
 
-function loadHistory() {
-  try {
-    if (fs.existsSync(HISTORY_FILE)) {
-      const raw = fs.readFileSync(HISTORY_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      // 兼容：旧格式是数组，新格式是对象
-      if (Array.isArray(data)) return {};
-      return data;
-    }
-  } catch (e) {
-    console.error("Error reading history.json:", e.message);
-  }
-  return {};
-}
+app.get("/api/dishes", (req, res) => res.json(loadDishes()));
 
-function saveHistory(history) {
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf-8");
-}
-
-function loadComments() {
-  try {
-    if (fs.existsSync(COMMENTS_FILE)) {
-      const raw = fs.readFileSync(COMMENTS_FILE, "utf-8");
-      return JSON.parse(raw);
-    }
-  } catch (e) {
-    console.error("Error reading comments.json:", e.message);
-  }
-  return [];
-}
-
-function saveComments(comments) {
-  fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2), "utf-8");
-}
-
-// 中午12点前归前一天，12点后归当天
-function getBizDate() {
-  const now = new Date();
-  const d = new Date(now);
-  if (d.getHours() < 12) {
-    d.setDate(d.getDate() - 1);
-  }
-  return d.toISOString().slice(0, 10);
-}
-
-// 过滤历史：只保留 bizDate 对应的记录
-function getFilteredHistory() {
-  const bizDate = getBizDate();
-  return loadHistory()[bizDate] || [];
-}
-
-// ─── API Routes ─────────────────────────────────────────────
-
-// GET /api/dishes — 获取全部菜品
-app.get("/api/dishes", (req, res) => {
-  const dishes = loadDishes();
-  res.json(dishes);
-});
-
-// POST /api/dishes — 添加菜品
 app.post("/api/dishes", (req, res) => {
   const { name } = req.body;
-  if (!name || !name.trim()) {
-    return res.status(400).json({ error: "菜品名称不能为空" });
-  }
+  if (!name || !name.trim()) return res.status(400).json({ error: "菜品名称不能为空" });
   const dishes = loadDishes();
-  const newDish = {
-    id: uuidv4(),
-    name: name.trim(),
-    createdAt: new Date().toISOString(),
-  };
+  const newDish = { id: require("uuid").v4(), name: name.trim(), createdAt: new Date().toISOString() };
   dishes.push(newDish);
   saveDishes(dishes);
   res.status(201).json(newDish);
 });
 
-// PUT /api/dishes/:id — 编辑菜品
 app.put("/api/dishes/:id", (req, res) => {
   const { name } = req.body;
-  if (!name || !name.trim()) {
-    return res.status(400).json({ error: "菜品名称不能为空" });
-  }
+  if (!name || !name.trim()) return res.status(400).json({ error: "菜品名称不能为空" });
   const dishes = loadDishes();
-  const index = dishes.findIndex((d) => d.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: "菜品不存在" });
-  }
-  dishes[index].name = name.trim();
-  dishes[index].updatedAt = new Date().toISOString();
+  const idx = dishes.findIndex((d) => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "菜品不存在" });
+  dishes[idx].name = name.trim();
+  dishes[idx].updatedAt = new Date().toISOString();
   saveDishes(dishes);
-  res.json(dishes[index]);
+  res.json(dishes[idx]);
 });
 
-// DELETE /api/dishes/:id — 删除菜品
 app.delete("/api/dishes/:id", (req, res) => {
   const dishes = loadDishes();
-  const index = dishes.findIndex((d) => d.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: "菜品不存在" });
-  }
-  const deleted = dishes.splice(index, 1)[0];
+  const idx = dishes.findIndex((d) => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "菜品不存在" });
+  const deleted = dishes.splice(idx, 1)[0];
   saveDishes(dishes);
   res.json(deleted);
 });
 
-// GET /api/dishes/random — 随机选取一道菜
 app.get("/api/dishes/random", (req, res) => {
   const dishes = loadDishes();
-  if (dishes.length === 0) {
-    return res.status(404).json({ error: "还没有菜品，请先添加" });
-  }
-  const picked = dishes[Math.floor(Math.random() * dishes.length)];
-  res.json(picked);
+  if (dishes.length === 0) return res.status(404).json({ error: "还没有菜品，请先添加" });
+  res.json(dishes[Math.floor(Math.random() * dishes.length)]);
 });
 
-// ─── History API ───────────────────────────────────────────
+// ─── History API (Knex) ─────────────────────────────────
 
-// GET /api/history — 获取摇菜记录（自动按4点规则过滤）
-app.get("/api/history", (req, res) => {
-  const history = getFilteredHistory();
-  res.json(history);
+// GET /api/history — 获取今天的摇菜记录（最新3条）
+app.get("/api/history", async (req, res) => {
+  const rows = await knex("history")
+    .where({ date: getBizDate() })
+    .orderBy("created_at", "desc")
+    .limit(3);
+  res.json(rows.map((r) => r.dish_name));
 });
 
-// POST /api/history — 添加一条摇菜记录
-app.post("/api/history", (req, res) => {
+// POST /api/history — 添加一条摇菜记录（每天最多保留3条）
+app.post("/api/history", async (req, res) => {
   const { dishName } = req.body;
-  if (!dishName || !dishName.trim()) {
-    return res.status(400).json({ error: "菜品名称不能为空" });
-  }
-  const history = loadHistory();
+  if (!dishName || !dishName.trim()) return res.status(400).json({ error: "菜品名称不能为空" });
   const bizDate = getBizDate();
 
-  if (!history[bizDate]) history[bizDate] = [];
-  history[bizDate].push(dishName.trim());
-  if (history[bizDate].length > 3) history[bizDate].shift();
-  saveHistory(history);
-  res.status(201).json(getFilteredHistory());
+  await knex("history").insert({
+    dish_name: dishName.trim(),
+    date: bizDate,
+    created_at: new Date().toISOString(),
+  });
+
+  // 删除该天超出3条的旧记录
+  const rows = await knex("history").where({ date: bizDate }).orderBy("created_at", "asc");
+  if (rows.length > 3) {
+    const idsToDelete = rows.slice(0, rows.length - 3).map((r) => r.id);
+    await knex("history").whereIn("id", idsToDelete).del();
+  }
+
+  const recent = await knex("history")
+    .where({ date: bizDate })
+    .orderBy("created_at", "desc")
+    .limit(3);
+  res.status(201).json(recent.map((r) => r.dish_name));
 });
 
+// ─── Calendar API ────────────────────────────────────────
 
-
-
-// ─── Calendar API ──────────────────────────────────────────
-
-// GET /api/calendar?month=YYYY-MM — 获取某月每天的汇总数据
-app.get("/api/calendar", (req, res) => {
+app.get("/api/calendar", async (req, res) => {
   const { month } = req.query;
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return res.status(400).json({ error: "参数格式错误，请使用 YYYY-MM" });
@@ -191,132 +124,113 @@ app.get("/api/calendar", (req, res) => {
   const [year, mon] = month.split("-").map(Number);
   const daysInMonth = new Date(year, mon, 0).getDate();
   const result = {};
-
   for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = month + "-" + String(d).padStart(2, "0");
-    result[dateStr] = { dishes: [], commentCount: 0 };
+    result[`${month}-${String(d).padStart(2, "0")}`] = { dishes: [], commentCount: 0 };
   }
 
-  // 从 history 中取每天的所有菜
-  const history = loadHistory();
-  Object.keys(history).forEach((day) => {
-    if (result[day]) {
-      result[day].dishes = history[day];
+  // 从数据库取该月所有历史记录
+  const startDate = `${month}-01`;
+  const endDate = `${month}-${String(daysInMonth).padStart(2, "0")}`;
+  const historyRows = await knex("history")
+    .where("date", ">=", startDate)
+    .where("date", "<=", endDate)
+    .orderBy("created_at", "desc");
+
+  historyRows.forEach((r) => {
+    if (result[r.date] && result[r.date].dishes.length < 3) {
+      result[r.date].dishes.push(r.dish_name);
     }
   });
 
-  // 从 comments 中统计每天数量
-  const comments = loadComments();
-  comments.forEach((c) => {
-    const day = c.bizDate || c.createdAt.slice(0, 10);
-    if (result[day]) {
-      result[day].commentCount++;
+  // 评论计数
+  const commentRows = await knex("comments")
+    .where("date", ">=", startDate)
+    .where("date", "<=", endDate);
+
+  commentRows.forEach((r) => {
+    if (result[r.date]) {
+      result[r.date].commentCount++;
     }
   });
 
   res.json(result);
 });
 
-// ─── Comments API ──────────────────────────────────────────
+// ─── Comments API (Knex) ─────────────────────────────────
 
-// POST /api/comments — 添加一条评论
-app.post("/api/comments", (req, res) => {
+app.post("/api/comments", async (req, res) => {
   const { content } = req.body;
-  if (!content || !content.trim()) {
-    return res.status(400).json({ error: "评论内容不能为空" });
-  }
-  const comments = loadComments();
-  const record = {
-    id: uuidv4(),
+  if (!content || !content.trim()) return res.status(400).json({ error: "评论内容不能为空" });
+
+  await knex("comments").insert({
     content: content.trim(),
-    createdAt: new Date().toISOString(),
-    bizDate: getBizDate(),
-  };
-  comments.push(record);
-  saveComments(comments);
-  res.status(201).json(record);
+    date: getBizDate(),
+    created_at: new Date().toISOString(),
+  });
+
+  const record = await knex("comments").orderBy("created_at", "desc").first();
+  res.status(201).json({
+    id: String(record.id),
+    content: record.content,
+    createdAt: record.created_at,
+  });
 });
 
-// GET /api/comments?date=YYYY-MM-DD — 获取某天的所有评论
-// GET /api/comments/recent — 获取最近3天有评论的数据
-// GET /api/comments/calendar?month=YYYY-MM — 获取某月有评论的天
-app.get("/api/comments", (req, res) => {
+app.get("/api/comments", async (req, res) => {
   const { date, month } = req.query;
 
   if (month) {
-    // 日历查询：返回该月有评论的天数组
-    const comments = loadComments();
-    const days = new Set();
-    comments.forEach((c) => {
-      const d = new Date(c.createdAt);
-      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (ym === month) {
-        days.add(String(d.getDate()));
-      }
-    });
-    return res.json(Array.from(days).sort((a, b) => a - b));
+    const rows = await knex("comments")
+      .where("date", "like", `${month}%`)
+      .select(knex.raw("DISTINCT substr(date, 9, 2) as day"));
+    const days = rows.map((r) => String(parseInt(r.day))).filter(Boolean).sort((a, b) => a - b);
+    return res.json(days);
   }
 
   if (date) {
-    // 某天的评论（按 bizDate 或 createdAt 匹配）
-    const comments = loadComments();
-    const filtered = comments
-      .filter((c) => (c.bizDate || c.createdAt.slice(0, 10)) === date)
-      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    return res.json(filtered);
+    const rows = await knex("comments")
+      .where({ date })
+      .orderBy("created_at", "asc");
+    return res.json(
+      rows.map((r) => ({ id: String(r.id), content: r.content, createdAt: r.created_at }))
+    );
   }
 
-  // 最近3天有评论的数据（按天分组）
-  const comments = loadComments().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  // 最近3天 grouped
+  const rows = await knex("comments").orderBy("created_at", "desc");
   const grouped = {};
-  comments.forEach((c) => {
-    const day = c.createdAt.slice(0, 10);
-    if (!grouped[day]) grouped[day] = [];
-    grouped[day].push(c);
+  rows.forEach((r) => {
+    if (!grouped[r.date]) grouped[r.date] = [];
+    grouped[r.date].push({ id: String(r.id), content: r.content, createdAt: r.created_at });
   });
-
-  const sortedDays = Object.keys(grouped).sort().reverse().slice(0, 3);
+  const sorted = Object.keys(grouped).sort().reverse().slice(0, 3);
   const result = {};
-  sortedDays.forEach((day) => {
-    result[day] = grouped[day].reverse();
+  sorted.forEach((d) => {
+    result[d] = grouped[d].reverse();
   });
   res.json(result);
 });
 
-// DELETE /api/comments/:id — 删除一条评论
-app.delete("/api/comments/:id", (req, res) => {
-  const comments = loadComments();
-  const index = comments.findIndex((c) => c.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: "评论不存在" });
-  }
-  comments.splice(index, 1);
-  saveComments(comments);
+app.delete("/api/comments/:id", async (req, res) => {
+  await knex("comments").where({ id: parseInt(req.params.id) }).del();
   res.json({ success: true });
 });
 
+// ─── Health ──────────────────────────────────────────────
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", dishCount: loadDishes().length });
+app.get("/api/health", async (req, res) => {
+  const dishCount = loadDishes().length;
+  res.json({ status: "ok", dishCount });
 });
 
-// SPA fallback
+// ─── SPA fallback ───────────────────────────────────────
+
 app.get("*", (req, res) => {
   const indexPath = path.join(clientDist, "index.html");
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
     res.status(404).json({ error: "Not found" });
-  }
-});
-
-
-// ─── Auto-init data files ──────────────────────────────
-[DATA_FILE, HISTORY_FILE, COMMENTS_FILE].forEach((f) => {
-  if (!fs.existsSync(f)) {
-    fs.writeFileSync(f, f.endsWith("history.json") ? "{}" : "[]", "utf-8");
-    console.log("Created:", path.basename(f));
   }
 });
 

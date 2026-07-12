@@ -5,3 +5,5 @@ server/dishes.json
 server/history.json
 server/comments.json
 *.log
+
+server/data.db
