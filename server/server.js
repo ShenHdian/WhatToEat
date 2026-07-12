@@ -17,9 +17,6 @@ if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
 }
 
-// ─── Init DB on startup ──────────────────────────────────
-initDB().catch((e) => console.error("DB init error:", e));
-
 // ─── Dishes API (keep JSON) ──────────────────────────────
 const DATA_FILE = path.join(__dirname, "dishes.json");
 
@@ -241,6 +238,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "服务器内部错误" });
 });
 
-app.listen(PORT, () => {
+initDB().then(() => {
+  app.listen(PORT, () => {
   console.log(`🍳 后端服务已启动: http://localhost:${PORT}`);
-});
+  });
+}).catch((e) => console.error("DB init error:", e));
