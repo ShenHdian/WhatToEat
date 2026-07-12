@@ -17,25 +17,14 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
 
-            # Backup user data
-            cp server/dishes.json /tmp/dishes_backup.json 2>/dev/null || true
-            cp server/data.db /tmp/data_backup.db 2>/dev/null || true
-
             git pull origin master
-
-            # Restore user data
-            cp /tmp/dishes_backup.json server/dishes.json 2>/dev/null || true
-            cp /tmp/data_backup.db server/data.db 2>/dev/null || true
 
             cd ${{ secrets.DEPLOY_PATH }}/server && npm install
             cd ${{ secrets.DEPLOY_PATH }}/client && npm install
 
             cd ${{ secrets.DEPLOY_PATH }}/client && npm run build
 
-            fuser -k 3001/tcp 2>/dev/null || true
-            sleep 1
-
-            cd ${{ secrets.DEPLOY_PATH }}/server
             pm2 delete whattoeat 2>/dev/null || true
+            cd ${{ secrets.DEPLOY_PATH }}/server
             pm2 start server.js --name whattoeat --update-env
             pm2 save
