@@ -15,7 +15,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /etc/whattoeat
+            cd ${{ secrets.DEPLOY_PATH }}
 
             # Backup user data
             cp server/dishes.json /tmp/dishes_backup.json 2>/dev/null || true
@@ -27,15 +27,15 @@ jobs:
             cp /tmp/dishes_backup.json server/dishes.json 2>/dev/null || true
             cp /tmp/data_backup.db server/data.db 2>/dev/null || true
 
-            cd /etc/whattoeat/server && npm install
-            cd /etc/whattoeat/client && npm install
+            cd ${{ secrets.DEPLOY_PATH }}/server && npm install
+            cd ${{ secrets.DEPLOY_PATH }}/client && npm install
 
-            cd /etc/whattoeat/client && npm run build
+            cd ${{ secrets.DEPLOY_PATH }}/client && npm run build
 
             fuser -k 3001/tcp 2>/dev/null || true
             sleep 1
 
-            cd /etc/whattoeat/server
+            cd ${{ secrets.DEPLOY_PATH }}/server
             pm2 delete whattoeat 2>/dev/null || true
             pm2 start server.js --name whattoeat --update-env
             pm2 save
