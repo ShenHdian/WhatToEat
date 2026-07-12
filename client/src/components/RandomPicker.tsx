@@ -50,6 +50,9 @@ export default function RandomPicker({ dishes, onPick }: RandomPickerProps) {
           setState("result");
           setShowConfetti(true);
           setTimeout(() => setShowConfetti(false), 2500);
+        }).catch(() => {
+          setState("idle");
+          setRollingName("");
         });
       }
     }, 80);
