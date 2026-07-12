@@ -5,6 +5,7 @@ import DishList from "./components/DishList";
 import AddDishModal from "./components/AddDishModal";
 import RandomPicker from "./components/RandomPicker";
 import CalendarJournal from "./components/CalendarJournal";
+import SponsorCard from "./components/SponsorCard";
 import type { Dish } from "./types/dish";
 import {
   fetchDishes,
@@ -108,6 +109,7 @@ export default function App() {
           <Divider style={{ margin: "8px 0 12px" }} />
           <DishList dishes={dishes} onEdit={handleEdit} onDelete={handleDelete} loading={loading} />
         </div>
+        <SponsorCard />
       </Content>
 
       <AddDishModal open={modalOpen} editingDish={editingDish} onClose={handleModalClose} onSave={handleSave} />
