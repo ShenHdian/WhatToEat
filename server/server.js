@@ -4,6 +4,8 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const { knex, initDB, getBizDate } = require("./db");
+const jwt = require("jsonwebtoken");
+require("dotenv").config({ path: __dirname + "/.env" });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -212,6 +214,55 @@ app.get("/api/comments", async (req, res) => {
 app.delete("/api/comments/:id", async (req, res) => {
   await knex("comments").where({ id: parseInt(req.params.id) }).del();
   res.json({ success: true });
+});
+
+
+// ─── Auth API ─────────────────────────────────────────────
+
+app.post("/api/auth/wx-login", async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: "缺少 code" });
+
+  const appid = process.env.WX_APPID;
+  const secret = process.env.WX_SECRET;
+  if (!appid || !secret) return res.status(500).json({ error: "未配置微信登录" });
+
+  // 向微信服务器换取 openid
+  const wxRes = await fetch(`https://api.weixin.qq.com/sns/jscode2session?appid=${appid}&secret=${secret}&js_code=${code}&grant_type=authorization_code`);
+  const wxData = await wxRes.json();
+
+  if (wxData.errcode) {
+    console.error("微信登录失败:", wxData);
+    return res.status(400).json({ error: "微信登录失败" });
+  }
+
+  const { openid, session_key } = wxData;
+
+  // 查找或创建用户
+  let user = await knex("users").where({ openid }).first();
+  if (!user) {
+    const [id] = await knex("users").insert({
+      openid,
+      nickname: "微信用户",
+      created_at: new Date().toISOString(),
+      last_login: new Date().toISOString(),
+    });
+    user = await knex("users").where({ id }).first();
+  } else {
+    await knex("users").where({ openid }).update({ last_login: new Date().toISOString() });
+  }
+
+  // 生成 JWT
+  const token = jwt.sign(
+    { id: user.id, openid: user.openid },
+    process.env.JWT_SECRET || "whattoeat-secret-key",
+    { expiresIn: "30d" }
+  );
+
+  res.json({
+    token,
+    user: { id: user.id, nickname: user.nickname, avatar: user.avatar },
+  });
 });
 
 // ─── Health ──────────────────────────────────────────────

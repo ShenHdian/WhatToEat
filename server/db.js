@@ -29,6 +29,18 @@ async function initDB() {
       t.timestamp("created_at").defaultTo(knex.fn.now());
     });
     console.log("Created table: comments");
+  const hasUsers = await knex.schema.hasTable("users");
+  if (!hasUsers) {
+    await knex.schema.createTable("users", (t) => {
+      t.increments("id").primary();
+      t.string("openid", 64).notNullable().unique();
+      t.string("nickname", 64);
+      t.string("avatar", 256);
+      t.timestamp("created_at").defaultTo(knex.fn.now());
+      t.timestamp("last_login").defaultTo(knex.fn.now());
+    });
+    console.log("Created table: users");
+  }
   }
 
   // 迁移旧 JSON 数据
