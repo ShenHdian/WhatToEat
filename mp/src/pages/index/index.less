@@ -1,0 +1,30 @@
+.pick-btn {
+  background: linear-gradient(135deg, #ff6b35, #ff8c5a); color: #fff; border: none;
+  border-radius: 40px; height: 50px; line-height: 50px; font-size: 16px; width: 80%; margin: 0 auto;
+}
+.rolling { animation: pulse 0.8s infinite; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,53,0.4); }
+  50% { box-shadow: 0 0 0 16px rgba(255,107,53,0); }
+}
+.result-area { text-align: center; margin-top: 16px; }
+.result-label { font-size: 14px; color: #999; display: block; }
+.result-text { font-size: 24px; color: #ff6b35; font-weight: 700; margin-top: 4px; display: block; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.section-title { font-size: 15px; font-weight: 600; }
+.dish-count { background: #ff6b35; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.add-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.add-input { flex: 1; border: 1px solid #eee; border-radius: 8px; height: 36px; padding: 0 12px; font-size: 14px; }
+.add-btn { background: #ff6b35; color: #fff; border: none; border-radius: 8px; height: 36px; line-height: 36px; font-size: 14px; padding: 0 16px; }
+.dish-list { max-height: 300px; }
+.dish-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+.dish-emoji { font-size: 20px; margin-right: 10px; }
+.dish-name { flex: 1; font-size: 15px; }
+.dish-del { color: #ff4757; font-size: 16px; padding: 4px 8px; }
+.sponsor-card { background: #fef9f4; border-radius: 16px; padding: 16px; text-align: center; margin-top: 12px; }
+.sponsor-text { font-size: 13px; color: #8B7355; display: block; margin-bottom: 8px; }
+.sponsor-qr { width: 80px; height: 80px; border-radius: 8px; }
+.sponsor-modal { text-align: center; padding: 20px; }
+.sponsor-modal-title { font-size: 16px; font-weight: 600; display: block; margin-bottom: 12px; }
+.sponsor-modal-qr { width: 200px; height: 200px; border-radius: 12px; }
+.sponsor-modal-hint { font-size: 12px; color: #999; display: block; margin-top: 8px; }
